@@ -8,7 +8,7 @@
 // PROXY_MATCH: أقرب/أسرع بروكسي لخوادم اللعب (Game Server) - يجب أن يكون منخفض البنق
 // PROXY_MAIN:  البروكسي الأساسي للوبي والمصادقة والخدمات
 // PROXY_CDN:   بروكسي التحميلات (يمكن تحمل تأخير بسيط في التحميل مقابل استقرار اللعب)
-var PROXY_MATCH = "PROXY 86.108.14.128:20001; DIRECT";
+var PROXY_MATCH = "PROXY 86.108.14.128:20001;
 var PROXY_MAIN  = "PROXY 86.108.95.108:80; PROXY 86.108.14.128:9030; DIRECT";
 var PROXY_CDN   = "PROXY 86.108.95.108:80; DIRECT";
 var DIRECT      = "DIRECT";
