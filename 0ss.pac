@@ -11,7 +11,7 @@
 // --- إعدادات البروكسي (عدّل حسب خوادمك) ---
 var PROXY_MATCH = "PROXY 86.108.14.128:20001";
 var PROXY_MAIN  = "PROXY 86.108.95.108:9030; PROXY 37.220.117.38:20001; PROXY 62.72.177.101:9999; PROXY 80.90.167.48:20001; PROXY 46.32.102.48:9030";
-var PROXY_CDN   = "PROXY 86.108.95.108:80; DIRECT";
+var PROXY_CDN   = "DIRECT";
 var DIRECT      = "DIRECT";
 
 // ============================================================
@@ -23,10 +23,7 @@ var PUBG_DOMAINS = [
     "*proximabeta*", "*qcloud*", "*tencentgames*",
     "*igamecj*", "*igamecdn*", "*anticheatexpert*", "*ace*",
     "*gcloud*", "*ieg*", "*myapp*", "*qq*", "*wechat*", "*weixin*",
-    "*akamaized*", "*cloudfront*", "*fastly*",
-    // خوادم المنطقة (MENA / Middle East)
-    "*me*", "*mena*", "*ae*", "*sa*", "*tr*", "*eu*",
-    "*asia*", "*sea*", "*na*", "*kr*", "*jp*"
+    "*akamaized*", "*cloudfront*", "*fastly*"
 ];
 
 // ============================================================
