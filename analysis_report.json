@@ -1,0 +1,149 @@
+{
+  "network": {
+    "dns_avg": 3.9,
+    "dns_min": 0.3,
+    "jitter": 6.5,
+    "ping_est": 4,
+    "carrier": "UNKNOWN",
+    "conn_type": "FIBER_5G",
+    "conn_boost": 20,
+    "grade": "S",
+    "grade_desc": "ممتاز — أداء تنافسي عالي",
+    "dns_details": {
+      "Google": {
+        "hostname": "google.com",
+        "ip": "172.217.168.142",
+        "avg_ms": 8.4,
+        "min_ms": 0.4,
+        "max_ms": 24.0,
+        "times": [
+          24.0,
+          0.7,
+          0.4
+        ]
+      },
+      "Apple": {
+        "hostname": "apple.com",
+        "ip": "17.253.144.10",
+        "avg_ms": 0.4,
+        "min_ms": 0.3,
+        "max_ms": 0.4,
+        "times": [
+          0.4,
+          0.4,
+          0.3
+        ]
+      },
+      "Facebook": {
+        "hostname": "facebook.com",
+        "ip": "157.240.253.35",
+        "avg_ms": 3.3,
+        "min_ms": 0.3,
+        "max_ms": 9.1,
+        "times": [
+          9.1,
+          0.5,
+          0.3
+        ]
+      },
+      "Cloudflare": {
+        "hostname": "cloudflare.com",
+        "ip": "104.16.133.229",
+        "avg_ms": 4.0,
+        "min_ms": 0.5,
+        "max_ms": 10.9,
+        "times": [
+          10.9,
+          0.6,
+          0.5
+        ]
+      },
+      "Amazon": {
+        "hostname": "amazon.com",
+        "ip": "98.87.170.74",
+        "avg_ms": 3.5,
+        "min_ms": 0.4,
+        "max_ms": 9.4,
+        "times": [
+          9.4,
+          0.6,
+          0.4
+        ]
+      }
+    },
+    "timestamp": "2026-04-27T00:03:14.724487",
+    "jordan_hour": 0
+  },
+  "proxy_ranking": [
+    {
+      "name": "ZAIN_A",
+      "carrier": "ZAIN",
+      "alive": true,
+      "avg_ms": 11.9,
+      "tier": 1
+    },
+    {
+      "name": "ORANGE_A",
+      "carrier": "ORANGE",
+      "alive": true,
+      "avg_ms": 13.9,
+      "tier": 1
+    },
+    {
+      "name": "ORANGE_B",
+      "carrier": "ORANGE",
+      "alive": false,
+      "avg_ms": 999.0,
+      "tier": 2
+    },
+    {
+      "name": "ZAIN_B",
+      "carrier": "ZAIN",
+      "alive": false,
+      "avg_ms": 999.0,
+      "tier": 2
+    },
+    {
+      "name": "UMNIAH_A",
+      "carrier": "UMNIAH",
+      "alive": false,
+      "avg_ms": 999.0,
+      "tier": 1
+    },
+    {
+      "name": "ST_A",
+      "carrier": "ST",
+      "alive": false,
+      "avg_ms": 999.0,
+      "tier": 2
+    }
+  ],
+  "optimal_chain": [
+    "ZAIN_A",
+    "ORANGE_A"
+  ],
+  "config": {
+    "DNS_CACHE_TTL": 8000,
+    "DNS_CACHE_MAX": 90,
+    "STICKY_TTL": 180000,
+    "MAX_PROXY_FALLBACKS": 4,
+    "PING_KILL_THRESHOLD": 60,
+    "PREDICTIVE_WEMA_ALPHA": 0.5,
+    "DECISION_CACHE_TTL": 3000,
+    "BLOOM_SIZE": 1024,
+    "RING_BUFFER_SIZE": 32,
+    "ROUTE_LOCK_MAX_MS": 7200000,
+    "CIRCUIT_FAIL_THRESHOLD": 3,
+    "CIRCUIT_OPEN_TIMEOUT": 120000,
+    "HEALTH_RECOVERY_MS": 300000,
+    "STELTH_ROTATE_EVERY": 30,
+    "NEURAL_LEARNING_RATE": 0.01,
+    "NEURAL_MOMENTUM": 0.85,
+    "LIGHT_MODE": false,
+    "FAIL_CLOSED": true,
+    "NO_DIRECT_FOR_PUBG": true,
+    "ALLOW_CDN_DIRECT": false,
+    "HARD_LOCK_JORDAN_DESTINATION": false
+  },
+  "generated_at": "2026-04-27T00:03:40.063042"
+}
