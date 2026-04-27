@@ -8,8 +8,8 @@
 // PROXY_MATCH: أقرب/أسرع بروكسي لخوادم اللعب (Game Server) - يجب أن يكون منخفض البنق
 // PROXY_MAIN:  البروكسي الأساسي للوبي والمصادقة والخدمات
 // PROXY_CDN:   بروكسي التحميلات (يمكن تحمل تأخير بسيط في التحميل مقابل استقرار اللعب)
-var PROXY_MATCH = "PROXY 86.108.14.128:20001";
-var PROXY_MAIN  = "PROXY 86.108.95.108:80; PROXY 86.108.14.128:9030; DIRECT";
+var PROXY_MATCH = "PROXY 149.200.253.140:20001";
+var PROXY_MAIN  = "PROXY 185.80.25.22:443; PROXY 149.200.253.140:9030; DIRECT";
 var PROXY_CDN   = "PROXY 86.108.95.108:80; DIRECT";
 var DIRECT      = "DIRECT";
 
@@ -153,7 +153,7 @@ function FindProxyForURL(url, host) {
     // هذه الخطوة تضمن أقل بنق. يتم التوجيه فوراً لبروكسي المباريات.
     if (matchAny(lowerHost, lowerURL, MATCH_PATTERNS)) {
         // إذا كان IP أردني، نمرره عبر PROXY_MATCH مع DIRECT احتياطي
-        return isJor ? PROXY_MATCH : PROXY_MATCH;
+return PROXY_MATCH;
     }
 
     // --- 5. اللوبي والمصادقة (Lobby / Auth / Social) ---
@@ -168,5 +168,5 @@ function FindProxyForURL(url, host) {
 
     // --- 7. أي اتصال آخر تابع لـ PUBG ---
     // تأثير شبكي قوي: جميع حركات PUBM تمر عبر البروكسي الرئيسي
-    return isJor ? PROXY_MAIN : PROXY_MAIN;
+return PROXY_MAIN;
 }
