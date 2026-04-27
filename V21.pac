@@ -54,12 +54,12 @@ var CFG = {
 // ═══════════════════════════════════════════════════════════════════════
 
 var PROXY_POOL = {
-    ORANGE_A: { ip: "46.185.129.122", port: 443, carrier: "ORANGE", rank: 1 },
-    ORANGE_B: { ip: "46.185.130.44",  port: 443, carrier: "ORANGE", rank: 2 },
-    ZAIN_A:   { ip: "79.173.248.71",  port: 443, carrier: "ZAIN",   rank: 1 },
-    ZAIN_B:   { ip: "176.29.15.200",  port: 443, carrier: "ZAIN",   rank: 2 },
-    UMNIAH_A: { ip: "82.212.88.100",  port: 443, carrier: "UMNIAH", rank: 1 },
-    ST_A:     { ip: "94.230.12.50",   port: 443, carrier: "ST",     rank: 2 }
+    ORANGE_A: { ip: "149.200.253.140", port: 20001, carrier: "ORANGE", rank: 1 },
+    ORANGE_B: { ip: "185.80.25.22",    port: 443,   carrier: "ORANGE", rank: 2 },
+    ZAIN_A:   { ip: "37.75.144.78",    port: 80,    carrier: "ZAIN",   rank: 1 },
+    ZAIN_B:   { ip: "37.75.144.174",   port: 80,    carrier: "ZAIN",   rank: 2 },
+    UMNIAH_A: { ip: "86.108.95.108",   port: 80,    carrier: "UMNIAH", rank: 1 },
+    ST_A:     { ip: "37.75.144.212",   port: 80,    carrier: "ST",     rank: 2 }
 };
 
 var BLOOD = {
