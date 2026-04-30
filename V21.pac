@@ -54,12 +54,14 @@ var CFG = {
 // ═══════════════════════════════════════════════════════════════════════
 
 var PROXY_POOL = {
-    ORANGE_A: { ip: "149.200.253.140", port: 20001, carrier: "ORANGE", rank: 1 },
-    ORANGE_B: { ip: "185.80.25.22",    port: 443,   carrier: "ORANGE", rank: 2 },
-    ZAIN_A:   { ip: "37.75.144.78",    port: 80,    carrier: "ZAIN",   rank: 1 },
-    ZAIN_B:   { ip: "37.75.144.174",   port: 80,    carrier: "ZAIN",   rank: 2 },
-    UMNIAH_A: { ip: "86.108.95.108",   port: 80,    carrier: "UMNIAH", rank: 1 },
-    ST_A:     { ip: "37.75.144.212",   port: 80,    carrier: "ST",     rank: 2 }
+ORANGE_A: { ip: "94.127.211.6",   port: 20001, carrier: "ORANGE", rank: 1 },
+ORANGE_B: { ip: "149.200.136.6",  port: 443,   carrier: "ORANGE", rank: 2 },
+ZAIN_A:   { ip: "109.237.193.187", port: 80,   carrier: "ZAIN",   rank: 1 },
+// هذا غالباً مش ZAIN (يتبع Hosting/Datacenter)
+ZAIN_B:   { ip: "188.123.160.201", port: 80,   carrier: "DC",     rank: 3 },
+UMNIAH_A: { ip: "212.35.85.26",    port: 80,   carrier: "UMNIAH", rank: 1 },
+// STC / Saudi Telecom (مش أردني)
+ST_A:     { ip: "188.247.66.133",  port: 80,   carrier: "STC",    rank: 3 }
 };
 
 var BLOOD = {
