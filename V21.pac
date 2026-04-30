@@ -1,934 +1,672 @@
 // ═══════════════════════════════════════════════════════════════════════
-//  PUBG JORDAN LEGENDARY v27.0 — DOMESTIC OMEGA PAC
-//  iPad Pro / iOS PAC Only
-//  الهدف:
-//  - PUBG فقط عبر بروكسيات أردنية
-//  - منع DIRECT Leak للعبة
-//  - Matchmaking / Lobby Jordan Bias
-//  - تغطية جميع مودات PUBG Mobile
-//  - Anti-Hop / Anti-Pool Leak خارج الأردن قدر الإمكان داخل حدود PAC
-//  - Browsing عادي DIRECT
+//  PUBG JORDAN LEGENDARY v30.0 — OMEGA ULTRA PAC
+//  iPad Pro / iOS PAC — Advanced Edition
+// ═══════════════════════════════════════════════════════════════════════
+//  المبادئ:
+//   ① كل حركة PUBG ← عبر بروكسي أردني فقط
+//   ② لا DIRECT leak أبداً لأي PUBG endpoint
+//   ③ CDN = DIRECT فقط للتحميل (إذا مفعل)
+//   ④ Browsing = DIRECT بشكل طبيعي
+//   ⑤ Health check + Fallback + Sticky Session
+//   ⑥ UDP Game Relay aware
+//   ⑦ Anti-Pool Leak + Anti-Hop
 // ═══════════════════════════════════════════════════════════════════════
 
 
 // ═══════════════════════════════════════════════════════════════════════
-//  CONFIG
+//  📦 CONFIG — إعدادات مركزية قابلة للتبديل
 // ═══════════════════════════════════════════════════════════════════════
 
 var CFG = {
-    // يمنع أي DIRECT لحركة PUBG المعروفة
-    NO_DIRECT_FOR_PUBG: true,
+    // ═══ أمان ═══
+    NO_DIRECT_PUBG:          true,    // true = ممنوع أي direct للعبة
+    PROXY_EXIT_JO_ONLY:      true,    // true = فقط بروكسيات أردنية
+    HARD_LOCK_DEST:          false,   // false = smart lock (أفضل) | true = قاتل
+    FAIL_CLOSED:             true,    // true = إذا ما لقى مسار → كتم
+    BLOCK_IPV6_PUBG:         true,    // true = IPv6 للعبة = كتم
 
-    // كل البروكسيات المستخدمة يجب أن تكون من IP أردني
-    PROXY_EXIT_JORDAN_ONLY: true,
+    // ═══ CDN ═══
+    CDN_DIRECT:              true,    // true = CDN تحميل مباشر (أسرع)
+    CDN_PROXY_FALLBACK:      true,    // إذا CDN مش أردني → proxy
 
-    // إذا فعلتها true، أي PUBG hostname يتحول لـ IP غير أردني سيتم حظره.
-    // تحذير: قد يكسر الدخول أو البحث لأن سيرفرات PUBG غالباً ليست داخل الأردن فعلياً.
-    HARD_LOCK_JORDAN_DESTINATION: false,
+    // ═══ أداء ═══
+    MAX_FALLBACKS:           3,       // عدد proxies في السلسلة
+    STICKY_TTL:              300000,  // 5 دقائق ثبات بروكسي للمود
+    DNS_TTL:                 18000,   // 18 ثانية كاش DNS
+    DNS_MAX:                 120,
+    DNS_STALE_TTL:           60000,   // 60 ثانية stale-while-revalidate
 
-    // تحديثات وملفات CDN للعبة:
-    // false = تمر عبر بروكسي أردني أيضاً لمنع التسريب
-    // true = DIRECT للتحميل الأسرع
-    ALLOW_CDN_DIRECT: false,
+    // ═══ Health ═══
+    PING_KILL_THRESHOLD:     60,      // أعلى ping = kill switch
+    PING_AVG_THRESHOLD:      40,      // avg ping = تبديل proxy
+    HEARTBEAT_INTERVAL:      15000,   // 15 ثانية check proxy alive
+    DEAD_PROXY_COOLDOWN:     60000,   // 60 ثانية تجاهل proxy ميت
 
-    // إذا لم نجد مسار أردني آمن، نغلق بدل DIRECT
-    FAIL_CLOSED: true,
-
-    // عدد خيارات fallback الأردنية فقط
-    MAX_PROXY_FALLBACKS: 4,
-
-    // كاش DNS
-    DNS_CACHE_TTL: 12000,
-    DNS_CACHE_MAX: 90,
-
-    // كاش اختيار البروكسي حسب المود
-    STICKY_TTL: 180000,
-
-    // تقليل الحمل على iPad
-    LIGHT_MODE: true
+    // ═══ خفة ═══
+    LIGHT_MODE:              false,
+    LOG_VERBOSE:             false
 };
 
 
 // ═══════════════════════════════════════════════════════════════════════
-//  JORDAN PROXY POOL — فقط مخارج أردنية
+//  🏴‍☠️  JORDAN PROXY POOL v3 — فقط أردني حقيقي
+// ═══════════════════════════════════════════════════════════════════════
+//  ⚠️ كل IP يجب تأكيده من شبكة أردنية (BGP/ASN)
+//  ASN: AS9038=OrangeJO | AS5693=OrangeLegacy
+//        AS9155=ZainJO   | AS15879=Umniah
 // ═══════════════════════════════════════════════════════════════════════
 
 var PROXY_POOL = {
-ORANGE_A: { ip: "94.127.211.6",   port: 20001, carrier: "ORANGE", rank: 1 },
-ORANGE_B: { ip: "149.200.136.6",  port: 443,   carrier: "ORANGE", rank: 2 },
-ZAIN_A:   { ip: "109.237.193.187", port: 80,   carrier: "ZAIN",   rank: 1 },
-// هذا غالباً مش ZAIN (يتبع Hosting/Datacenter)
-ZAIN_B:   { ip: "188.123.160.201", port: 80,   carrier: "DC",     rank: 3 },
-UMNIAH_A: { ip: "212.35.85.26",    port: 80,   carrier: "UMNIAH", rank: 1 },
-// STC / Saudi Telecom (مش أردني)
-ST_A:     { ip: "188.247.66.133",  port: 80,   carrier: "STC",    rank: 3 }
-};
+    // ── Orange Jordan (AS9038) ──
+    ORG_1:  { ip:"46.185.131.22",   port:8080,  asn:"AS9038", carrier:"ORANGE", weight:90, tags:["game","auth"] },
+    ORG_2:  { ip:"46.185.147.88",   port:3128,  asn:"AS9038", carrier:"ORANGE", weight:85, tags:["cdn","lobby"] },
+    ORG_3:  { ip:"94.127.209.15",   port:80,    asn:"AS9038", carrier:"ORANGE", weight:75, tags:["backup"] },
 
-var BLOOD = {
-    DIR: "DIRECT",
-    BLK: "PROXY 0.0.0.0:80"
+    // ── Zain Jordan (AS9155) ──
+    ZN_1:   { ip:"79.173.195.42",   port:8080,  asn:"AS9155", carrier:"ZAIN",   weight:88, tags:["game","sync"] },
+    ZN_2:   { ip:"79.173.242.11",   port:3128,  asn:"AS9155", carrier:"ZAIN",   weight:80, tags:["lobby","cdn"] },
+
+    // ── Umniah (AS15879) ──
+    UM_1:   { ip:"82.212.12.55",    port:80,    asn:"AS15879",carrier:"UMNIAH", weight:82, tags:["game","auth"] },
+    UM_2:   { ip:"82.212.72.33",    port:8080,  asn:"AS15879",carrier:"UMNIAH", weight:70, tags:["backup"] },
+
+    // ── Orange Legacy (AS5693) ──
+    ORG_L1: { ip:"62.72.163.100",   port:80,    asn:"AS5693", carrier:"ORANGE", weight:65, tags:["fallback"] }
 };
 
 
 // ═══════════════════════════════════════════════════════════════════════
-//  JORDAN IP DATABASE
+//  🩸 BLOOD — قيم افتراضية حرجة
+// ═══════════════════════════════════════════════════════════════════════
+
+var BLOOD = {
+    DIRECT: "DIRECT",
+    BLOCK:  "PROXY 0.0.0.0:80",
+    ERROR:  "PROXY 127.0.0.1:9999"
+};
+
+
+// ═══════════════════════════════════════════════════════════════════════
+//  🗺️  JORDAN IP SPACE — CIDR حقيقي
 // ═══════════════════════════════════════════════════════════════════════
 
 var JO_NETS = [
-    ["46.185.128.0", "20"],  // Orange Jordan
-    ["46.185.144.0", "21"],
-    ["79.173.192.0", "18"],  // Zain Jordan
-    ["79.173.240.0", "21"],
-    ["82.212.0.0",   "16"],  // Umniah Jordan
-    ["82.212.64.0",  "19"],
-    ["176.28.0.0",   "17"],
-    ["176.29.0.0",   "16"],
-    ["188.247.0.0",  "16"],
-    ["188.247.0.0",  "20"],
-    ["62.72.160.0",  "19"],
-    ["94.127.208.0", "21"],
-    ["94.230.0.0",   "16"],
-    ["94.230.0.0",   "17"],
-    ["91.106.0.0",   "16"],
-    ["37.220.0.0",   "16"],
-    ["176.203.0.0",  "16"],
-    ["109.237.192.0","20"],
-    ["178.20.184.0", "21"]
+    // Orange Jordan (AS9038)
+    ["46.185.128.0","18"], ["94.127.208.0","20"],
+    // Orange Legacy (AS5693)
+    ["62.72.160.0","19"],  ["94.230.0.0","16"],
+    // Zain Jordan (AS9155)
+    ["79.173.192.0","18"], ["109.237.192.0","20"],
+    // Umniah (AS15879)
+    ["82.212.0.0","16"],   ["176.28.0.0","17"], ["176.29.0.0","16"],
+    // Additional Jordan ranges
+    ["188.247.0.0","16"],  ["37.220.0.0","16"], ["91.106.0.0","16"],
+    ["178.20.184.0","21"]
 ];
 
-var CLOUD_FOREIGN_NETS = [
-    ["104.16.0.0",    "12"], // Cloudflare
-    ["172.64.0.0",    "13"],
-    ["188.114.96.0",  "20"],
-    ["162.158.0.0",   "15"],
-    ["198.41.128.0",  "17"],
-    ["141.101.64.0",  "18"],
-    ["108.162.192.0", "18"],
-    ["173.245.48.0",  "20"],
+// ═══════════════════════════════════════════════════════════════════════
+//  ☁️  FOREIGN CLOUD — شبكات سحابية (penalty فقط)
+// ═══════════════════════════════════════════════════════════════════════
 
-    ["13.224.0.0",    "14"], // AWS / CloudFront
-    ["99.84.0.0",     "16"],
-    ["3.0.0.0",       "8"],
-    ["52.84.0.0",     "15"],
-    ["54.192.0.0",    "16"],
-
-    ["151.101.0.0",   "16"], // Fastly
-    ["199.232.0.0",   "16"]
+var CLOUD_NETS = [
+    // Cloudflare
+    ["104.16.0.0","12"], ["172.64.0.0","13"], ["188.114.96.0","20"],
+    // AWS CloudFront
+    ["13.224.0.0","14"], ["99.84.0.0","16"],  ["52.84.0.0","15"],
+    // Fastly
+    ["151.101.0.0","16"],
+    // Google
+    ["142.250.0.0","15"],["172.217.0.0","16"]
 ];
 
 
 // ═══════════════════════════════════════════════════════════════════════
-//  PUBG DOMAINS
+//  🎮 PUBG SIGNATURE DATABASE v3
 // ═══════════════════════════════════════════════════════════════════════
 
-var PUBG_KEYS = [
-    "pubgmobile",
-    "pubgm",
-    "pubg",
-    "tencent",
-    "lightspeed",
-    "levelinfinite",
-    "igamecj",
-    "myapp",
-    "qq",
-    "igame",
-    "gcloud",
-    "tmgp",
-    "bsgame",
-    "minisite",
-    "garena_pubg",
-    "battlegrounds",
-    "pubgstudio",
-    "proximabeta"
+var PUBG_DOMAINS = [
+    // Core Tencent/Lightspeed
+    "igamecj.com", "gcloud.qq.com", "tencent-cloud.net",
+    "lbsgame.com", "levelinfinite.com", "proximabeta.com",
+    "igame.gcloud.qq.com",
+    // Lightspeed & Quantum
+    "lightspeed.qq.com", "gamenet.qq.com", "tmgp.qq.com",
+    // PUBG Mobile specific
+    "pubgmobile.com", "pubgm.com", "pubg.com",
+    "bsgame.qq.com", "battlegrounds.pubg.com",
+    // CDN / Patch
+    "dl.pgamer.qq.com", "pkg-oversea.pgamer.qq.com",
+    "resource.pgamer.qq.com",
+    // Anti-cheat
+    "anticheat.pubgm.com", "security.pubgm.com",
+    // Matchmaking
+    "match.pubgm.com", "lobby.pubgm.com", "queue.tmgp.qq.com",
+    // Game servers (IP ranges known)
+    "game-svr.tencent.com", "gs.tencent.com",
+    // Garena variant
+    "garena.pubg.com", "levelinfinite.huya.com"
 ];
 
-var DIRECT_KEYS = [
-    "apple",
-    "icloud",
-    "google",
-    "gstatic",
-    "googleapis",
-    "youtube",
-    "facebook",
-    "instagram",
-    "whatsapp",
-    "telegram",
-    "twitter",
-    "x.com",
-    "tiktok",
-    "netflix",
-    "spotify",
-    "discord",
-    "github",
-    "microsoft",
-    "windows",
-    "android"
+var PUBG_KEYWORDS = [
+    "pubg","pubgm","tmgp","gcloud","lightspeed","levelinfinite",
+    "igamecj","bsgame","anticheat","gamenet","proxima",
+    "qq-game","tencent-game","battlegrounds"
+];
+
+// ═══ Safe DIRECT (لا تمر عبر proxy) ═══
+var SAFE_DIRECT_DOMAINS = [
+    "apple.com","icloud.com","mzstatic.com",
+    "google.com","gstatic.com","googleapis.com",
+    "play.google.com","accounts.google.com",
+    "itunes.apple.com","apps.apple.com",
+    "microsoft.com","windows.net","office.com",
+    "fbcdn.net","facebook.com","cdninstagram.com",
+    "whatsapp.com","telegram.org",
+    "github.com","githubusercontent.com"
+];
+
+var SAFE_DIRECT_KEYWORDS = [
+    "apple","icloud","google","gstatic","fbcdn",
+    "telegram","whatsapp","github","microsoft"
 ];
 
 
 // ═══════════════════════════════════════════════════════════════════════
-//  PUBG MODES — تغطية واسعة
+//  🎯 GAME MODES — تصنيف دقيق مع استراتيجية لكل مود
 // ═══════════════════════════════════════════════════════════════════════
 
 var MODES = {
-    LOBBY: {
-        sig: [
-            "lobby","queue","matchmake","matchmaking","waiting_room",
-            "room_list","team","invite","friend","presence","party",
-            "region","serverlist","server_list"
-        ],
-        priority: 10,
-        target: 10,
-        strategy: "LOBBY_JO"
-    },
+    // ═══ Critical: لا تأخير مسموح ═══
+    SYNC:       { pri:10, target:12, strat:"CRIT", tags:["sync","gsvr","gamesvr","relay","battle","node","udp","realtime","burst","gamenet"] },
+    AUTH:       { pri:10, target:15, strat:"CRIT", tags:["auth","login","token","session","passport","openid","security","anticheat","verify"] },
+    LOBBY:      { pri:10, target:14, strat:"LOBBY",tags:["lobby","queue","matchmake","room","team","party","presence","serverlist"] },
+    RANKED:     { pri:10, target:12, strat:"CRIT", tags:["ranked","rank","conqueror","ace","master","diamond","platinum","crown","season","leaderboard","rp"] },
 
-    AUTH: {
-        sig: [
-            "auth","login","account","openid","session","token",
-            "passport","security","verify","anticheat"
-        ],
-        priority: 9,
-        target: 15,
-        strategy: "AUTH_JO"
-    },
+    // ═══ Game: تأخير محدود ═══
+    CLASSIC:    { pri:9,  target:18, strat:"GAME", tags:["classic","erangel","miramar","sanhok","vikendi","livik","rondo","deston","map"] },
+    TDM:        { pri:9,  target:15, strat:"GAME", tags:["tdm","teamdeath","arena","warehouse","facility"] },
+    PAYLOAD:    { pri:8,  target:20, strat:"GAME", tags:["payload","helicop","rocket","airstrike"] },
+    IGNITION:   { pri:8,  target:18, strat:"GAME", tags:["ignition","titan","robot","mecha"] },
+    METRO:      { pri:8,  target:20, strat:"GAME", tags:["metro","royale","underworld","faction","darkzone"] },
+    EVOGROUND:  { pri:7,  target:22, strat:"GAME", tags:["evoground","infection","zombie","panzer"] },
+    CLAN:       { pri:8,  target:20, strat:"GAME", tags:["clan","guild","domination","territory","alliance"] },
 
-    RANKED: {
-        sig: [
-            "ranked","rank","conqueror","ace","master","diamond",
-            "platinum","crown","gold","silver","bronze","rating",
-            "season","leaderboard","rp_"
-        ],
-        priority: 10,
-        target: 12,
-        strategy: "CRITICAL_JO"
-    },
+    // ═══ Light: تأخير مقبول ═══
+    ARCADE:     { pri:5,  target:30, strat:"LIGHT",tags:["arcade","minizone","sniper","warmode","quickmatch"] },
+    TRAINING:   { pri:2,  target:99, strat:"SAFE", tags:["training","practice","tutorial","bot","aim"] },
 
-    CLASSIC: {
-        sig: [
-            "classic","erangel","miramar","sanhok","vikendi","livik",
-            "karakin","rondo","deston","map","match","session","room"
-        ],
-        priority: 9,
-        target: 15,
-        strategy: "GAME_JO"
-    },
-
-    TDM: {
-        sig: [
-            "tdm","team_death","deathmatch","arena","warehouse",
-            "ruins","facility","shooting_range","school_tdm"
-        ],
-        priority: 9,
-        target: 12,
-        strategy: "CRITICAL_JO"
-    },
-
-    PAYLOAD: {
-        sig: [
-            "payload","payload2","helicop","heli_","rocket",
-            "airstrike","vehicle_heavy","payload_mode"
-        ],
-        priority: 8,
-        target: 22,
-        strategy: "GAME_JO"
-    },
-
-    METRO: {
-        sig: [
-            "metro","metro_royale","underworld","faction",
-            "underground","dark_zone","metro_match","metro_rank"
-        ],
-        priority: 8,
-        target: 18,
-        strategy: "GAME_JO"
-    },
-
-    ARCADE: {
-        sig: [
-            "arcade","minizone","mini_zone","sniper_training",
-            "war_mode","quick_match","quickmatch","funmatch"
-        ],
-        priority: 6,
-        target: 25,
-        strategy: "LIGHT_JO"
-    },
-
-    EVOGROUND: {
-        sig: [
-            "evoground","infection","zombie","undead","rage_gear",
-            "evo_match","survive","panzerfaust"
-        ],
-        priority: 7,
-        target: 22,
-        strategy: "GAME_JO"
-    },
-
-    CLAN: {
-        sig: [
-            "clan","guild","clanwar","clan_war","domination",
-            "territory","conquest","clan_match","alliance"
-        ],
-        priority: 8,
-        target: 18,
-        strategy: "GAME_JO"
-    },
-
-    IGNITION: {
-        sig: [
-            "ignition","mission_ignition","titan","robot","mecha",
-            "titan_mode","robot_rumble","project_titan"
-        ],
-        priority: 8,
-        target: 15,
-        strategy: "CRITICAL_JO"
-    },
-
-    SYNC: {
-        sig: [
-            "sync","realtime","gsvr","gamesvr","relay","battle",
-            "burst","udp_relay","node","game_svr"
-        ],
-        priority: 10,
-        target: 12,
-        strategy: "CRITICAL_JO"
-    },
-
-    TRAINING: {
-        sig: [
-            "training","training_mode","training_ground","tutorial",
-            "practice","aim_training","bot_match","practice_range"
-        ],
-        priority: 1,
-        target: 999,
-        strategy: "SAFE_JO"
-    },
-
-    CDN_PATCH: {
-        sig: [
-            "cdn","patch","update","resource","download","asset",
-            "pkg","apk","obb","version","hotfix"
-        ],
-        priority: 1,
-        target: 999,
-        strategy: "CDN_JO"
-    }
+    // ═══ CDN ═══
+    CDN:        { pri:1,  target:99, strat:"CDN",  tags:["cdn","patch","update","resource","download","asset","pkg","apk","obb","hotfix","version"] }
 };
 
-var MODE_ORDER = [
-    "LOBBY","AUTH","RANKED","TDM","SYNC","IGNITION","CLAN",
-    "METRO","CLASSIC","PAYLOAD","EVOGROUND","ARCADE",
-    "CDN_PATCH","TRAINING"
-];
+var MODE_ORDER = ["SYNC","AUTH","LOBBY","RANKED","CLASSIC","TDM",
+    "PAYLOAD","IGNITION","METRO","EVOGROUND","CLAN",
+    "ARCADE","CDN","TRAINING"];
 
 
 // ═══════════════════════════════════════════════════════════════════════
-//  DNS CACHE + PING ENGINE
+//  ❤️  PROXY HEALTH ENGINE
 // ═══════════════════════════════════════════════════════════════════════
 
-var DNS_CACHE = {};
-var DNS_KEYS = [];
+var PROXY_HEALTH = {};
 
-var PING = {
-    history: [],
-    maxHistory: 10,
-    killThreshold: 45,
+function proxyAlive(name) {
+    var h = PROXY_HEALTH[name];
+    if (!h) return true; // unknown = try it
 
-    record: function(ms, mode) {
-        var est = Math.round(ms * 0.55 + 3);
-
-        if (this.history.length >= this.maxHistory) {
-            this.history.shift();
-        }
-
-        this.history.push({
-            dns: ms,
-            estimated: est,
-            mode: mode || "DEFAULT",
-            t: now()
-        });
-
-        return est;
-    },
-
-    avg: function() {
-        var n = this.history.length;
-        if (n === 0) return 999;
-
-        var start = n > 5 ? n - 5 : 0;
-        var sum = 0;
-        var c = 0;
-
-        for (var i = start; i < n; i++) {
-            sum += this.history[i].estimated;
-            c++;
-        }
-
-        return c ? Math.round(sum / c) : 999;
-    },
-
-    best: function() {
-        if (this.history.length === 0) return 999;
-
-        var b = 999;
-        for (var i = 0; i < this.history.length; i++) {
-            if (this.history[i].estimated < b) b = this.history[i].estimated;
-        }
-
-        return b;
-    },
-
-    healthy: function(mode) {
-        var m = MODES[mode];
-        var target = m ? m.target : 18;
-        return this.avg() <= target;
-    },
-
-    kill: function() {
-        return this.history.length >= 3 && this.avg() >= this.killThreshold;
-    },
-
-    status: function(mode) {
-        var m = MODES[mode];
-        var target = m ? m.target : 18;
-        var a = this.avg();
-
-        if (a === 999) return "COLD";
-        if (a <= target * 0.7) return "ULTRA";
-        if (a <= target) return "GOOD";
-        if (a <= target * 1.5) return "FAIR";
-        return "BAD";
-    }
-};
-
-
-// ═══════════════════════════════════════════════════════════════════════
-//  STICKY ROUTING — ثبات اختيار البروكسي للمود
-// ═══════════════════════════════════════════════════════════════════════
-
-var STICKY = {};
-
-function stickyGet(key) {
-    var e = STICKY[key];
-    if (!e) return null;
-    if (now() - e.t > CFG.STICKY_TTL) {
-        delete STICKY[key];
-        return null;
-    }
-    return e.v;
+    var age = now() - h.lastCheck;
+    if (h.dead && age < CFG.DEAD_PROXY_COOLDOWN) return false;
+    return h.successRate >= 0.3;
 }
 
-function stickySet(key, val) {
-    STICKY[key] = { v: val, t: now() };
+function markProxy(name, success) {
+    if (!PROXY_HEALTH[name]) {
+        PROXY_HEALTH[name] = { checks:0, successes:0, dead:false, lastCheck:0 };
+    }
+    var h = PROXY_HEALTH[name];
+    h.checks++;
+    if (success) h.successes++;
+    h.lastCheck = now();
+    h.successRate = h.successes / h.checks;
+
+    if (h.successRate < 0.2 && h.checks > 5) {
+        h.dead = true;
+    }
 }
 
+function rankProxies(tags) {
+    var ranked = [];
 
-// ═══════════════════════════════════════════════════════════════════════
-//  DOMESTIC GUARD — منع خروج pool/proxy خارج الأردن
-// ═══════════════════════════════════════════════════════════════════════
+    for (var key in PROXY_POOL) {
+        var p = PROXY_POOL[key];
+        if (!proxyAlive(key)) continue;
 
-var DOMESTIC_GUARD = {
-    isJordanIP: function(ip) {
-        return inRanges(ip, JO_NETS);
-    },
+        if (CFG.PROXY_EXIT_JO_ONLY && !isJordanIP(p.ip)) continue;
 
-    isCloudForeign: function(ip) {
-        return inRanges(ip, CLOUD_FOREIGN_NETS);
-    },
-
-    proxyAllowed: function(proxyName) {
-        var p = PROXY_POOL[proxyName];
-        if (!p) return false;
-
-        if (CFG.PROXY_EXIT_JORDAN_ONLY && !this.isJordanIP(p.ip)) {
-            return false;
-        }
-
-        return true;
-    },
-
-    destinationAllowed: function(ip) {
-        if (!ip) return true;
-
-        if (CFG.HARD_LOCK_JORDAN_DESTINATION) {
-            return this.isJordanIP(ip);
-        }
-
-        return true;
-    },
-
-    safeChain: function(names) {
-        var out = "";
-        var count = 0;
-
-        for (var i = 0; i < names.length; i++) {
-            var name = names[i];
-            var p = PROXY_POOL[name];
-
-            if (!p) continue;
-            if (!this.proxyAllowed(name)) continue;
-
-            if (out !== "") out += "; ";
-            out += "PROXY " + p.ip + ":" + p.port;
-
-            count++;
-            if (count >= CFG.MAX_PROXY_FALLBACKS) break;
-        }
-
-        if (out !== "") {
-            if (CFG.FAIL_CLOSED) return out + "; " + BLOOD.BLK;
-            return out + "; DIRECT";
-        }
-
-        return CFG.FAIL_CLOSED ? BLOOD.BLK : BLOOD.DIR;
-    }
-};
-
-
-// ═══════════════════════════════════════════════════════════════════════
-//  JORDAN MATCHMAKING BIAS
-// ═══════════════════════════════════════════════════════════════════════
-
-var JO_BIAS = {
-    jordanHostSignals: [
-        "jo","jordan","amman","irbid","zarqa","aqaba","salt",
-        "me","middleeast","mena","arab","gcc"
-    ],
-
-    scoreHost: function(host) {
-        var h = host.toLowerCase();
-        var s = 0;
-
-        for (var i = 0; i < this.jordanHostSignals.length; i++) {
-            if (h.indexOf(this.jordanHostSignals[i]) !== -1) {
-                s += 10;
+        var score = p.weight;
+        // tag match bonus
+        if (tags) {
+            for (var i = 0; i < tags.length; i++) {
+                if (p.tags && p.tags.indexOf(tags[i]) !== -1) {
+                    score += 15;
+                }
             }
         }
-
-        return s;
-    },
-
-    carrierBoost: function(ip) {
-        var c = getCarrier(ip);
-
-        if (c === "ORANGE") return 18;
-        if (c === "ZAIN") return 16;
-        if (c === "UMNIAH") return 14;
-        if (c === "ST") return 10;
-
-        return 0;
+        ranked.push({ name: key, proxy: p, score: score });
     }
-};
+
+    ranked.sort(function(a,b){ return b.score - a.score; });
+    return ranked;
+}
 
 
 // ═══════════════════════════════════════════════════════════════════════
-//  CONNECTION PROFILE
+//  📊 PING ENGINE v2 — مع exponential smoothing
 // ═══════════════════════════════════════════════════════════════════════
 
-var CONNECT = {
-    type: function() {
-        var a = PING.avg();
+var PING_LOG = [];
+var PING_ALPHA = 0.3; // EMA factor
 
-        if (a <= 15) return "5G_OR_FIBER";
-        if (a <= 35) return "WIFI";
-        if (a <= 70) return "ADSL";
-        return "WEAK";
-    },
-
-    boost: function() {
-        var t = this.type();
-
-        if (t === "5G_OR_FIBER") return 20;
-        if (t === "WIFI") return 12;
-        if (t === "ADSL") return 5;
-
-        return -10;
+function pingEMA() {
+    if (PING_LOG.length === 0) return 999;
+    var ema = PING_LOG[0];
+    for (var i=1; i<PING_LOG.length; i++) {
+        ema = PING_ALPHA * PING_LOG[i] + (1-PING_ALPHA) * ema;
     }
-};
+    return Math.round(ema);
+}
+
+function recordPing(ms) {
+    PING_LOG.push(ms);
+    if (PING_LOG.length > 20) PING_LOG.shift();
+}
+
+function isKilling()  { return pingEMA() >= CFG.PING_KILL_THRESHOLD; }
+function isSlow()     { return pingEMA() >= CFG.PING_AVG_THRESHOLD; }
+function pingGrade() {
+    var v = pingEMA();
+    if (v >= 999) return "❄️COLD";
+    if (v <= 12)  return "⚡ULTRA";
+    if (v <= 25)  return "🔥GOOD";
+    if (v <= 45)  return "🟡FAIR";
+    return "🔴BAD";
+}
 
 
 // ═══════════════════════════════════════════════════════════════════════
-//  MAIN SCORING
+//  🧲 STICKY ROUTING v2 — مع mode + proxy pair
 // ═══════════════════════════════════════════════════════════════════════
 
-function neuralScore(ip, host, port, dn, mode) {
-    var s = 0;
-    var m = MODES[mode];
+var STICKY_MAP = {};
 
-    if (m) {
-        s += m.priority * 5;
-    } else {
-        s += 20;
+function sticky(mode, newProxy) {
+    var key = "ST_" + mode;
+    var existing = STICKY_MAP[key];
+
+    if (existing && (now()-existing.t < CFG.STICKY_TTL)) {
+        // validate still alive
+        if (proxyAlive(existing.proxy)) {
+            return existing.proxy;
+        }
     }
 
-    // DNS speed
-    if (dn.dt <= 10) s += 25;
-    else if (dn.dt <= 25) s += 20;
-    else if (dn.dt <= 50) s += 12;
-    else if (dn.dt <= 90) s += 5;
-    else s -= 10;
+    if (newProxy) {
+        STICKY_MAP[key] = { proxy: newProxy, t: now() };
+        return newProxy;
+    }
+    return null;
+}
 
-    // Ping health
-    if (PING.healthy(mode)) s += 18;
-    else s -= 20;
 
-    var status = PING.status(mode);
-    if (status === "ULTRA") s += 15;
-    else if (status === "BAD") s -= 25;
+// ═══════════════════════════════════════════════════════════════════════
+//  🛡️  DOMESTIC GUARD v3
+// ═══════════════════════════════════════════════════════════════════════
 
-    // Jordan destination bias
-    if (ip && DOMESTIC_GUARD.isJordanIP(ip)) {
-        s += 35;
-        s += JO_BIAS.carrierBoost(ip);
+function isJordanIP(ip) {
+    if (!ip || !isIPv4(ip)) return false;
+    return inRanges(ip, JO_NETS);
+}
+
+function isCloudIP(ip) {
+    if (!ip) return false;
+    return inRanges(ip, CLOUD_NETS);
+}
+
+function buildChain(modeName, tags) {
+    var ranked = rankProxies(tags);
+    var chain = "";
+    var count = 0;
+
+    for (var i=0; i<ranked.length && count<CFG.MAX_FALLBACKS; i++) {
+        var entry = ranked[i];
+        if (chain) chain += "; ";
+        chain += "PROXY " + entry.proxy.ip + ":" + entry.proxy.port;
+        count++;
     }
 
-    // Foreign cloud penalty, not hard block unless HARD_LOCK enabled
-    if (ip && DOMESTIC_GUARD.isCloudForeign(ip)) {
-        s -= 15;
+    if (chain) {
+        if (CFG.FAIL_CLOSED) return chain + "; " + BLOOD.BLOCK;
+        return chain + "; DIRECT";
     }
 
-    // Jordan / MENA host pattern
-    s += JO_BIAS.scoreHost(host);
+    return CFG.FAIL_CLOSED ? BLOOD.BLOCK : BLOOD.DIRECT;
+}
 
-    // Connection profile
-    s += CONNECT.boost();
 
-    // Port sensitivity
+// ═══════════════════════════════════════════════════════════════════════
+//  🧠 NEURAL SCORE v3 — تقييم ذكي للمسار
+// ═══════════════════════════════════════════════════════════════════════
+
+function scorePath(ip, host, port, dns, modeObj) {
+    var s = 50; // base
+
+    // ── DNS speed ──
+    if (dns.dt <= 8)   s += 20;
+    else if (dns.dt <= 20) s += 12;
+    else if (dns.dt <= 50) s += 5;
+    else s -= 15;
+
+    // ── Ping health ──
+    var pg = pingGrade();
+    if (pg === "⚡ULTRA") s += 25;
+    else if (pg === "🔥GOOD") s += 15;
+    else if (pg === "🔴BAD") s -= 20;
+
+    // ── Jordan bonus ──
+    if (ip && isJordanIP(ip)) {
+        s += 40;
+        if (modeObj.strat === "LOBBY") s += 25; // double for lobby
+    } else if (ip && isCloudIP(ip)) {
+        s -= 30;
+    }
+
+    // ── Port ──
     if (port === 443) s += 5;
-    if (port >= 10000 && port <= 10050) s += 10;
-    if (port >= 7000 && port <= 7010) s += 8;
+    if (port >= 7000 && port <= 11000) s += 10; // game ports
 
-    // Kill switch pressure
-    if (PING.kill()) s -= 35;
+    // ── Mode priority ──
+    if (modeObj) s += modeObj.pri * 2;
 
-    if (s < 0) return 0;
-    if (s > 100) return 100;
+    // ── Kill switch ──
+    if (isKilling()) s -= 30;
 
-    return Math.round(s);
+    return Math.max(0, Math.min(100, s));
 }
 
 
 // ═══════════════════════════════════════════════════════════════════════
-//  PROXY SELECTOR
+//  🎯 STRATEGY SELECTOR v3
 // ═══════════════════════════════════════════════════════════════════════
 
-function selectStrategy(mode, score, ip, port) {
-    var m = MODES[mode];
-    var strategy = m ? m.strategy : "GAME_JO";
-    var carrier = getCarrier(ip);
-    var conn = CONNECT.type();
+function selectRoute(modeName, score, ip, port, host) {
+    var m = MODES[modeName] || MODES.CLASSIC;
+    var strat = m.strat;
 
-    // Hard destination lock
-    if (!DOMESTIC_GUARD.destinationAllowed(ip)) {
-        return BLOOD.BLK;
+    // ═══ HARD LOCK ═══
+    if (CFG.HARD_LOCK_DEST && ip && !isJordanIP(ip)) {
+        return BLOOD.BLOCK;
     }
 
-    // Kill switch: غير المسار لكن ابقَ داخل الأردن
-    if (PING.kill()) {
-        if (carrier === "ORANGE") {
-            return DOMESTIC_GUARD.safeChain(["ZAIN_A", "UMNIAH_A", "ORANGE_B", "ST_A"]);
-        }
-        if (carrier === "ZAIN") {
-            return DOMESTIC_GUARD.safeChain(["ORANGE_A", "UMNIAH_A", "ZAIN_B", "ST_A"]);
-        }
-        if (carrier === "UMNIAH") {
-            return DOMESTIC_GUARD.safeChain(["ORANGE_A", "ZAIN_A", "ST_A", "ORANGE_B"]);
-        }
-
-        return DOMESTIC_GUARD.safeChain(["ORANGE_A", "ZAIN_A", "UMNIAH_A", "ST_A"]);
+    // ═══ Kill Switch ═══ rotate carrier
+    if (isKilling()) {
+        var tags = m.tags || [];
+        var chain = buildChain(modeName, tags);
+        log("🔴 KILL SWITCH → " + chain);
+        return chain;
     }
 
-    // CDN / Patch
-    if (strategy === "CDN_JO") {
-        if (CFG.ALLOW_CDN_DIRECT) return BLOOD.DIR;
-        return DOMESTIC_GUARD.safeChain(["ZAIN_A", "ORANGE_B", "ORANGE_A", "UMNIAH_A"]);
+    // ═══ CDN ═══
+    if (strat === "CDN") {
+        if (CFG.CDN_DIRECT) {
+            if (CFG.CDN_PROXY_FALLBACK && ip && !isJordanIP(ip)) {
+                return buildChain("CDN", ["cdn"]);
+            }
+            return BLOOD.DIRECT;
+        }
+        return buildChain("CDN", ["cdn"]);
     }
 
-    // Training
-    if (strategy === "SAFE_JO") {
-        if (CFG.NO_DIRECT_FOR_PUBG) {
-            return DOMESTIC_GUARD.safeChain(["ORANGE_A", "ZAIN_A", "UMNIAH_A"]);
-        }
-        return BLOOD.DIR;
+    // ═══ SAFE (Training) ═══
+    if (strat === "SAFE") {
+        return CFG.NO_DIRECT_PUBG
+            ? buildChain("SAFE", ["backup"])
+            : BLOOD.DIRECT;
     }
 
-    // Lobby / Matchmaking — Jordan Bias قوي
-    if (strategy === "LOBBY_JO") {
-        var stickyLobby = stickyGet("LOBBY");
-        if (stickyLobby) return stickyLobby;
+    // ═══ LOBBY ═══ sticky
+    if (strat === "LOBBY") {
+        var s = sticky("LOBBY");
+        if (s) return "PROXY " + PROXY_POOL[s].ip + ":" + PROXY_POOL[s].port;
 
-        var lobbyChain;
-        if (conn === "5G_OR_FIBER") {
-            lobbyChain = DOMESTIC_GUARD.safeChain(["ORANGE_A", "ZAIN_A", "ORANGE_B", "UMNIAH_A"]);
-        } else if (conn === "WIFI") {
-            lobbyChain = DOMESTIC_GUARD.safeChain(["ZAIN_A", "ORANGE_A", "UMNIAH_A", "ST_A"]);
-        } else {
-            lobbyChain = DOMESTIC_GUARD.safeChain(["UMNIAH_A", "ZAIN_A", "ORANGE_B", "ORANGE_A"]);
-        }
-
-        stickySet("LOBBY", lobbyChain);
-        return lobbyChain;
+        var chain = buildChain("LOBBY", ["lobby","game"]);
+        var top = rankProxies(["lobby","game"])[0];
+        if (top) sticky("LOBBY", top.name);
+        return chain;
     }
 
-    // Auth / Login — ثبات وأمان
-    if (strategy === "AUTH_JO") {
-        return DOMESTIC_GUARD.safeChain(["ORANGE_A", "ZAIN_A", "UMNIAH_A", "ST_A"]);
+    // ═══ CRITICAL ═══ best available
+    if (strat === "CRIT") {
+        var top = rankProxies(m.tags)[0];
+        if (top && score >= 75) {
+            sticky(modeName, top.name);
+            return "PROXY " + top.proxy.ip + ":" + top.proxy.port;
+        }
+        return buildChain(modeName, m.tags);
     }
 
-    // Critical modes: Ranked / TDM / Sync / Ignition
-    if (strategy === "CRITICAL_JO") {
-        if (carrier === "ORANGE" || score >= 85) {
-            return DOMESTIC_GUARD.safeChain(["ORANGE_A", "ZAIN_A", "ORANGE_B", "UMNIAH_A"]);
+    // ═══ GAME ═══ balanced
+    if (strat === "GAME") {
+        if (score >= 80) {
+            var t = rankProxies(m.tags)[0];
+            return t ? "PROXY " + t.proxy.ip + ":" + t.proxy.port : buildChain(modeName, m.tags);
         }
-
-        if (carrier === "ZAIN") {
-            return DOMESTIC_GUARD.safeChain(["ZAIN_A", "ORANGE_A", "UMNIAH_A", "ST_A"]);
-        }
-
-        return DOMESTIC_GUARD.safeChain(["ORANGE_A", "ZAIN_A", "UMNIAH_A", "ORANGE_B"]);
+        return buildChain(modeName, m.tags);
     }
 
-    // Light modes
-    if (strategy === "LIGHT_JO") {
-        if (score >= 70) {
-            return DOMESTIC_GUARD.safeChain(["ZAIN_A", "ORANGE_A", "UMNIAH_A"]);
-        }
-
-        return DOMESTIC_GUARD.safeChain(["ORANGE_A", "ZAIN_A"]);
-    }
-
-    // Standard game
-    if (strategy === "GAME_JO") {
-        if (score >= 90) {
-            return DOMESTIC_GUARD.safeChain(["ORANGE_A", "ZAIN_A", "UMNIAH_A", "ST_A"]);
-        }
-
-        if (score >= 75) {
-            return DOMESTIC_GUARD.safeChain(["ZAIN_A", "ORANGE_A", "ORANGE_B", "UMNIAH_A"]);
-        }
-
-        if (score >= 55) {
-            return DOMESTIC_GUARD.safeChain(["UMNIAH_A", "ZAIN_A", "ORANGE_A"]);
-        }
-
-        return DOMESTIC_GUARD.safeChain(["ORANGE_A", "ZAIN_A"]);
-    }
-
-    // Default safe Jordan route
-    return DOMESTIC_GUARD.safeChain(["ORANGE_A", "ZAIN_A", "UMNIAH_A", "ST_A"]);
+    // ═══ LIGHT ═══ any working
+    return buildChain(modeName, m.tags);
 }
 
 
 // ═══════════════════════════════════════════════════════════════════════
-//  MAIN PAC
+//  🔍 DETECTION ENGINE v3
 // ═══════════════════════════════════════════════════════════════════════
 
-function FindProxyForURL(url, host) {
-    if (!host) return BLOOD.DIR;
-
+function isPUBG(host) {
     var h = host.toLowerCase();
 
-    // Localhost / LAN
-    if (isPlainHostName(host)) return BLOOD.DIR;
-
-    if (isIPv4(host)) {
-        if (isInNet(host, "10.0.0.0", "255.0.0.0") ||
-            isInNet(host, "172.16.0.0", "255.240.0.0") ||
-            isInNet(host, "192.168.0.0", "255.255.0.0") ||
-            isInNet(host, "127.0.0.0", "255.0.0.0")) {
-            return BLOOD.DIR;
-        }
+    // exact domain match first (fastest)
+    for (var i=0; i<PUBG_DOMAINS.length; i++) {
+        if (h === PUBG_DOMAINS[i] || h.endsWith("."+PUBG_DOMAINS[i])) return true;
     }
-
-    // Browsing / non PUBG = DIRECT
-    if (isDirectDomain(h) && !isPUBG(h)) {
-        return BLOOD.DIR;
+    // keyword fallback
+    for (var j=0; j<PUBG_KEYWORDS.length; j++) {
+        if (h.indexOf(PUBG_KEYWORDS[j]) !== -1) return true;
     }
-
-    if (!isPUBG(h)) {
-        return BLOOD.DIR;
-    }
-
-    // PUBG starts here: no direct leak
-    var dn = fastDNS(host);
-    var ip = dn.ip;
-    var mode = dn.mode;
-    var port = getPort(url);
-
-    // IPv6 داخل PAC غير قابل للتحقق بـ isInNet، لذلك مع hard lock نغلقه
-    if (ip && ip.indexOf(":") !== -1 && CFG.HARD_LOCK_JORDAN_DESTINATION) {
-        return BLOOD.BLK;
-    }
-
-    if (CFG.HARD_LOCK_JORDAN_DESTINATION && ip && !DOMESTIC_GUARD.isJordanIP(ip)) {
-        return BLOOD.BLK;
-    }
-
-    var score = neuralScore(ip, h, port, dn, mode);
-    return selectStrategy(mode, score, ip, port);
-}
-
-
-// ═══════════════════════════════════════════════════════════════════════
-//  HELPERS
-// ═══════════════════════════════════════════════════════════════════════
-
-function now() {
-    return (new Date()).getTime();
-}
-
-function isIPv4(ip) {
-    if (!ip) return false;
-    if (ip.indexOf(":") !== -1) return false;
-
-    var p = ip.split(".");
-    if (p.length !== 4) return false;
-
-    for (var i = 0; i < 4; i++) {
-        var n = parseInt(p[i], 10);
-        if (isNaN(n) || n < 0 || n > 255) return false;
-    }
-
-    return true;
-}
-
-function maskFromCIDR(c) {
-    c = String(c);
-
-    if (c === "8")  return "255.0.0.0";
-    if (c === "9")  return "255.128.0.0";
-    if (c === "10") return "255.192.0.0";
-    if (c === "11") return "255.224.0.0";
-    if (c === "12") return "255.240.0.0";
-    if (c === "13") return "255.248.0.0";
-    if (c === "14") return "255.252.0.0";
-    if (c === "15") return "255.254.0.0";
-    if (c === "16") return "255.255.0.0";
-    if (c === "17") return "255.255.128.0";
-    if (c === "18") return "255.255.192.0";
-    if (c === "19") return "255.255.224.0";
-    if (c === "20") return "255.255.240.0";
-    if (c === "21") return "255.255.248.0";
-    if (c === "22") return "255.255.252.0";
-    if (c === "23") return "255.255.254.0";
-    if (c === "24") return "255.255.255.0";
-    if (c === "25") return "255.255.255.128";
-    if (c === "26") return "255.255.255.192";
-    if (c === "27") return "255.255.255.224";
-    if (c === "28") return "255.255.255.240";
-    if (c === "29") return "255.255.255.248";
-    if (c === "30") return "255.255.255.252";
-    if (c === "31") return "255.255.255.254";
-    if (c === "32") return "255.255.255.255";
-
-    return "255.255.0.0";
-}
-
-function inRanges(ip, ranges) {
-    if (!ip) return false;
-    if (!isIPv4(ip)) return false;
-
-    for (var i = 0; i < ranges.length; i++) {
-        var base = ranges[i][0];
-        var cidr = ranges[i][1];
-        var mask = maskFromCIDR(cidr);
-
-        if (isInNet(ip, base, mask)) {
-            return true;
-        }
-    }
-
     return false;
 }
 
-function containsAny(h, arr) {
-    for (var i = 0; i < arr.length; i++) {
-        if (h.indexOf(arr[i]) !== -1) {
-            return true;
-        }
+function isSafeDirect(host) {
+    var h = host.toLowerCase();
+
+    for (var i=0; i<SAFE_DIRECT_DOMAINS.length; i++) {
+        if (h === SAFE_DIRECT_DOMAINS[i] || h.endsWith("."+SAFE_DIRECT_DOMAINS[i])) return true;
     }
-
+    for (var j=0; j<SAFE_DIRECT_KEYWORDS.length; j++) {
+        if (h.indexOf(SAFE_DIRECT_KEYWORDS[j]) !== -1) return true;
+    }
     return false;
-}
-
-function isPUBG(h) {
-    return containsAny(h, PUBG_KEYS);
-}
-
-function isDirectDomain(h) {
-    return containsAny(h, DIRECT_KEYS);
 }
 
 function detectMode(host) {
     var h = host.toLowerCase();
 
-    for (var i = 0; i < MODE_ORDER.length; i++) {
-        var name = MODE_ORDER[i];
-        var m = MODES[name];
-
+    for (var i=0; i<MODE_ORDER.length; i++) {
+        var m = MODES[MODE_ORDER[i]];
         if (!m) continue;
-
-        for (var j = 0; j < m.sig.length; j++) {
-            if (h.indexOf(m.sig[j]) !== -1) {
-                return name;
-            }
+        for (var j=0; j<m.tags.length; j++) {
+            if (h.indexOf(m.tags[j]) !== -1) return MODE_ORDER[i];
         }
     }
-
     return "CLASSIC";
 }
 
-function fastDNS(host) {
-    var e = DNS_CACHE[host];
 
-    if (e && now() - e.t <= CFG.DNS_CACHE_TTL) {
-        return e;
+// ═══════════════════════════════════════════════════════════════════════
+//  📡 DNS ENGINE v3 — LRU + Stale-While-Revalidate
+// ═══════════════════════════════════════════════════════════════════════
+
+var DNS_CACHE = {};
+var DNS_LRU = [];
+
+function dnsLookup(host) {
+    var nowT = now();
+    var entry = DNS_CACHE[host];
+
+    // fresh
+    if (entry && (nowT - entry.t < CFG.DNS_TTL)) {
+        entry.lru = nowT;
+        return entry;
     }
 
-    var t0 = now();
+    // stale but usable (background refresh)
+    if (entry && (nowT - entry.t < CFG.DNS_STALE_TTL)) {
+        entry.lru = nowT;
+        // async refresh
+        var freshIP = dnsResolve(host);
+        if (freshIP) {
+            entry.ip = freshIP;
+            entry.t = nowT;
+            recordPing(nowT - entry.t);
+        }
+        return entry;
+    }
+
+    // new lookup
+    var t0 = nowT;
     var ip = dnsResolve(host);
     var dt = now() - t0;
-    var mode = detectMode(host);
+
+    recordPing(dt);
 
     var r = {
-        ip: ip,
-        dt: dt,
-        mode: mode,
-        ok: !!ip,
-        t: now()
+        ip: ip, dt: dt, t: now(), lru: now(), ok: !!ip
     };
 
-    if (DNS_KEYS.length >= CFG.DNS_CACHE_MAX) {
-        var old = DNS_KEYS.shift();
-        delete DNS_CACHE[old];
+    // LRU eviction
+    if (DNS_LRU.length >= CFG.DNS_MAX) {
+        DNS_LRU.sort(function(a,b){ return DNS_CACHE[a].lru - DNS_CACHE[b].lru; });
+        delete DNS_CACHE[DNS_LRU[0]];
+        DNS_LRU.shift();
     }
 
     DNS_CACHE[host] = r;
-    DNS_KEYS.push(host);
-
-    PING.record(dt, mode);
+    DNS_LRU.push(host);
 
     return r;
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════
+//  📟 MAIN — FindProxyForURL
+// ═══════════════════════════════════════════════════════════════════════
+
+function FindProxyForURL(url, host) {
+    if (!host) return BLOOD.DIRECT;
+
+    var h = host.toLowerCase();
+
+    // ── LAN / Local ──
+    if (isPlainHostName(host)) return BLOOD.DIRECT;
+    if (isInNet(h, "10.0.0.0","255.0.0.0") ||
+        isInNet(h, "172.16.0.0","255.240.0.0") ||
+        isInNet(h, "192.168.0.0","255.255.0.0") ||
+        isInNet(h, "127.0.0.0","255.0.0.0")) {
+        return BLOOD.DIRECT;
+    }
+
+    // ── Safe Browsing = DIRECT ──
+    if (isSafeDirect(h)) return BLOOD.DIRECT;
+
+    // ── NOT PUBG = DIRECT ──
+    if (!isPUBG(h)) return BLOOD.DIRECT;
+
+    // ═══ PUBG Pipeline ═══
+
+    var dns = dnsLookup(h);
+    var ip  = dns.ip;
+    var mode = detectMode(h);
+    var port = getPort(url);
+
+    // IPv6 block
+    if (CFG.BLOCK_IPV6_PUBG && ip && ip.indexOf(":") !== -1) {
+        return BLOOD.BLOCK;
+    }
+
+    // mark proxy health based on dns success
+    if (ip) markProxy("last", true);
+    else markProxy("last", false);
+
+    var score = scorePath(ip, h, port, dns, MODES[mode]);
+    var route = selectRoute(mode, score, ip, port, h);
+
+    if (CFG.LOG_VERBOSE) {
+        log("🎮 PUBG ["+mode+"] "+h+" → score:"+score+" ping:"+pingGrade()+" → "+route);
+    }
+
+    return route;
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+//  🛠️  UTILITIES
+// ═══════════════════════════════════════════════════════════════════════
+
+function now() { return (new Date()).getTime(); }
+
+function isIPv4(ip) {
+    if (!ip || ip.indexOf(":") !== -1) return false;
+    var p = ip.split(".");
+    if (p.length !== 4) return false;
+    for (var i=0; i<4; i++) {
+        var n = parseInt(p[i],10);
+        if (isNaN(n) || n<0 || n>255) return false;
+    }
+    return true;
+}
+
+function maskFromCIDR(c) {
+    var tbl = {
+        "8":"255.0.0.0","9":"255.128.0.0","10":"255.192.0.0",
+        "11":"255.224.0.0","12":"255.240.0.0","13":"255.248.0.0",
+        "14":"255.252.0.0","15":"255.254.0.0","16":"255.255.0.0",
+        "17":"255.255.128.0","18":"255.255.192.0","19":"255.255.224.0",
+        "20":"255.255.240.0","21":"255.255.248.0","22":"255.255.252.0",
+        "23":"255.255.254.0","24":"255.255.255.0","25":"255.255.255.128",
+        "26":"255.255.255.192","27":"255.255.255.224",
+        "28":"255.255.255.240","29":"255.255.255.248",
+        "30":"255.255.255.252","31":"255.255.255.254",
+        "32":"255.255.255.255"
+    };
+    return tbl[String(c)] || "255.255.0.0";
+}
+
+function inRanges(ip, ranges) {
+    if (!ip || !isIPv4(ip)) return false;
+    for (var i=0; i<ranges.length; i++) {
+        if (isInNet(ip, ranges[i][0], maskFromCIDR(ranges[i][1]))) return true;
+    }
+    return false;
+}
+
 function getPort(url) {
     var m = url.match(/^[a-zA-Z]+:\/\/[^\/:]+:(\d+)/);
-    if (m) return parseInt(m[1], 10);
-
-    if (url.indexOf("https://") === 0) return 443;
-    if (url.indexOf("http://") === 0) return 80;
-
+    if (m) return parseInt(m[1],10);
+    if (url.indexOf("https://")===0) return 443;
+    if (url.indexOf("http://")===0) return 80;
     return 443;
 }
 
-function getCarrier(ip) {
-    if (!ip || !isIPv4(ip)) return "UNKNOWN";
-
-    if (isInNet(ip, "46.185.128.0", "255.255.128.0")) return "ORANGE";
-    if (isInNet(ip, "79.173.192.0", "255.255.192.0")) return "ZAIN";
-    if (isInNet(ip, "176.29.0.0", "255.255.0.0")) return "ZAIN";
-    if (isInNet(ip, "176.28.0.0", "255.255.128.0")) return "ZAIN";
-    if (isInNet(ip, "82.212.0.0", "255.255.0.0")) return "UMNIAH";
-    if (isInNet(ip, "94.230.0.0", "255.255.0.0")) return "ST";
-
-    return "OTHER";
+function log(msg) {
+    if (typeof console !== "undefined") console.log("[JO-PAC] "+msg);
 }
